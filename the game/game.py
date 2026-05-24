@@ -9,7 +9,7 @@ Controls:
   Escape              —  Quit
 """
 
-import pygame, sys, random, math
+import pygame, sys, random, math, os, threading, urllib.request
 pygame.init()
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -309,6 +309,48 @@ PLAYER_INVENTORY = {
         {"name": "Earth",   "leader": "GIOVANNI",  "earned": False},
     ],
 }
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SPRITE LOADER  —  downloads Gen-1 sprites from PokeAPI, caches to disk
+# ─────────────────────────────────────────────────────────────────────────────
+_SPRITE_DIR     = os.path.join(os.path.dirname(os.path.abspath(__file__)), "sprites")
+_sprite_cache   = {}     # dex -> Surface | None (None = permanently failed)
+_sprite_pending = {}     # dex -> local path (file ready, needs pygame load)
+_sprite_loading = set()  # dex numbers whose download is in flight
+
+def _dl_sprite(dex):
+    """Background thread: fetch PNG from PokeAPI and signal main thread."""
+    os.makedirs(_SPRITE_DIR, exist_ok=True)
+    fpath = os.path.join(_SPRITE_DIR, f"{dex}.png")
+    if not os.path.exists(fpath):
+        url = (f"https://raw.githubusercontent.com/PokeAPI/sprites/"
+               f"master/sprites/pokemon/{dex}.png")
+        try:
+            urllib.request.urlretrieve(url, fpath)
+        except Exception:
+            _sprite_cache[dex] = None
+            _sprite_loading.discard(dex)
+            return
+    _sprite_pending[dex] = fpath
+    _sprite_loading.discard(dex)
+
+def get_sprite(dex):
+    """Return a scaled Surface or None.  Triggers background download if needed.
+    MUST be called from the main pygame thread (convert_alpha requirement)."""
+    if dex in _sprite_pending:
+        fpath = _sprite_pending.pop(dex)
+        try:
+            s = pygame.image.load(fpath).convert_alpha()
+            s = pygame.transform.scale(s, (80, 80))
+            _sprite_cache[dex] = s
+        except Exception:
+            _sprite_cache[dex] = None
+    if dex in _sprite_cache:
+        return _sprite_cache[dex]
+    if dex not in _sprite_loading:
+        _sprite_loading.add(dex)
+        threading.Thread(target=_dl_sprite, args=(dex,), daemon=True).start()
+    return None   # still downloading
 
 # ─────────────────────────────────────────────────────────────────────────────
 # MAP GENERATION  (outdoor)
@@ -978,16 +1020,28 @@ class Backpack:
         dark = tuple(max(0,   c-70) for c in col)
         lite = tuple(min(255, c+80) for c in col)
 
-        # Type-coloured icon circle
+        # Icon: real sprite (downloaded async) or coloured-circle fallback
         icon_cx = dx + dw // 2; icon_cy = dy + 52; r = 40
+        sprite  = get_sprite(poke["dex"])
+
         if poke["dex"] >= 144:                          # legendary gold ring
             D.circle(surf, (248,208,48), (icon_cx, icon_cy), r+6, 3)
-        D.circle(surf, (60,60,60),  (icon_cx+2, icon_cy+2), r)   # shadow
-        D.circle(surf, col,         (icon_cx,   icon_cy  ), r)
-        D.circle(surf, lite,        (icon_cx-r//3, icon_cy-r//3), r//3)
-        D.circle(surf, dark,        (icon_cx,   icon_cy  ), r, 2)
-        lbl = self.fnt_sm.render(f"No.{poke['dex']:03d}", True, dark)
-        surf.blit(lbl, (icon_cx - lbl.get_width()//2, icon_cy - 6))
+
+        if sprite:
+            # Light background disc so transparent sprites look clean
+            D.circle(surf, (235,235,235), (icon_cx,   icon_cy  ), r+2)
+            D.circle(surf, (200,200,200), (icon_cx,   icon_cy  ), r+2, 2)
+            surf.blit(sprite, (icon_cx - 40, icon_cy - 40))
+        else:
+            # Fallback: type-coloured circle while sprite loads
+            D.circle(surf, (60,60,60),  (icon_cx+2, icon_cy+2), r)
+            D.circle(surf, col,         (icon_cx,   icon_cy  ), r)
+            D.circle(surf, lite,        (icon_cx-r//3, icon_cy-r//3), r//3)
+            D.circle(surf, dark,        (icon_cx,   icon_cy  ), r, 2)
+            txt = "Downloading..." if poke["dex"] in _sprite_loading else f"No.{poke['dex']:03d}"
+            lbl = self.fnt_sm.render(txt, True,
+                                     (180,180,180) if "Downloading" in txt else dark)
+            surf.blit(lbl, (icon_cx - lbl.get_width()//2, icon_cy - 6))
 
         # Name + level
         name_y = dy + r*2 + 22
