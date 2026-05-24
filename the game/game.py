@@ -9,7 +9,7 @@ Controls:
   Escape              —  Quit
 """
 
-import pygame, sys, random
+import pygame, sys, random, math
 pygame.init()
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -65,6 +65,19 @@ cUIBG=(248,248,248); cUIBD=(32,32,32); cUIGY=(168,168,168)
 cBLK=(  8, 16, 24); cWHT=(248,248,248)
 cTBG=( 16, 32, 64); cTYL=(248,208, 48)
 
+# ── Type colours ──────────────────────────────────────────────────────────────
+TYPE_COLORS = {
+    "Normal":   (168,168,120), "Fire":     (240,128, 48),
+    "Water":    ( 96,144,240), "Grass":    (120,200, 80),
+    "Electric": (248,208, 48), "Ice":      (152,216,216),
+    "Fighting": (192, 48, 40), "Poison":   (160, 64,160),
+    "Ground":   (224,192, 48), "Flying":   (168,144,240),
+    "Psychic":  (248, 88,136), "Bug":      (168,184, 32),
+    "Rock":     (184,160, 56), "Ghost":    (112, 88,152),
+    "Dragon":   (112, 56,248), "Dark":     (112, 88, 72),
+    "Steel":    (184,184,208), "Fairy":    (238,153,172),
+}
+
 # Interior palette
 iFL1=(224,192,144); iFL2=(192,160,112)
 iWL1=(152,136,112); iWL2=(112, 96, 72)
@@ -113,6 +126,189 @@ NPC_DATA = [
     {"tx": 8,"ty":25,"dir":"right","pal":3,"name":"HIKER",
      "pages":["I have been lost\nin tall grass","for three days!","Could you show\nme the way out?"]},
 ]
+
+# ─────────────────────────────────────────────────────────────────────────────
+# GEN 1 POKEDEX  —  (name, [types], hp, atk, def, spa, spd, spe)
+# ─────────────────────────────────────────────────────────────────────────────
+GEN1_POKEMON = {
+    1:  ("Bulbasaur",  ["Grass","Poison"],    45, 49, 49, 65, 65, 45),
+    2:  ("Ivysaur",    ["Grass","Poison"],    60, 62, 63, 80, 80, 60),
+    3:  ("Venusaur",   ["Grass","Poison"],    80, 82, 83,100,100, 80),
+    4:  ("Charmander", ["Fire"],              39, 52, 43, 60, 50, 65),
+    5:  ("Charmeleon", ["Fire"],              58, 64, 58, 80, 65, 80),
+    6:  ("Charizard",  ["Fire","Flying"],     78, 84, 78,109, 85,100),
+    7:  ("Squirtle",   ["Water"],             44, 48, 65, 50, 64, 43),
+    8:  ("Wartortle",  ["Water"],             59, 63, 80, 65, 80, 58),
+    9:  ("Blastoise",  ["Water"],             79, 83,100, 85,105, 78),
+    10: ("Caterpie",   ["Bug"],               45, 30, 35, 20, 20, 45),
+    11: ("Metapod",    ["Bug"],               50, 20, 55, 25, 25, 30),
+    12: ("Butterfree", ["Bug","Flying"],      60, 45, 50, 90, 80, 70),
+    13: ("Weedle",     ["Bug","Poison"],      40, 35, 30, 20, 20, 50),
+    14: ("Kakuna",     ["Bug","Poison"],      45, 25, 50, 25, 25, 35),
+    15: ("Beedrill",   ["Bug","Poison"],      65, 90, 40, 45, 80, 75),
+    16: ("Pidgey",     ["Normal","Flying"],   40, 45, 40, 35, 35, 56),
+    17: ("Pidgeotto",  ["Normal","Flying"],   63, 60, 55, 50, 50, 71),
+    18: ("Pidgeot",    ["Normal","Flying"],   83, 80, 75, 70, 70,101),
+    19: ("Rattata",    ["Normal"],            30, 56, 35, 25, 35, 72),
+    20: ("Raticate",   ["Normal"],            55, 81, 60, 50, 70, 97),
+    21: ("Spearow",    ["Normal","Flying"],   40, 60, 30, 31, 31, 70),
+    22: ("Fearow",     ["Normal","Flying"],   65, 90, 65, 61, 61,100),
+    23: ("Ekans",      ["Poison"],            35, 60, 44, 40, 54, 55),
+    24: ("Arbok",      ["Poison"],            60, 95, 69, 65, 79, 80),
+    25: ("Pikachu",    ["Electric"],          35, 55, 30, 50, 40, 90),
+    26: ("Raichu",     ["Electric"],          60, 90, 55, 90, 80,110),
+    27: ("Sandshrew",  ["Ground"],            50, 75, 85, 20, 30, 40),
+    28: ("Sandslash",  ["Ground"],            75,100,110, 45, 55, 65),
+    29: ("Nidoran-F",  ["Poison"],            55, 47, 52, 40, 40, 41),
+    30: ("Nidorina",   ["Poison"],            70, 62, 67, 55, 55, 56),
+    31: ("Nidoqueen",  ["Poison","Ground"],   90, 92, 87, 75, 85, 76),
+    32: ("Nidoran-M",  ["Poison"],            46, 57, 40, 40, 40, 50),
+    33: ("Nidorino",   ["Poison"],            61, 72, 57, 55, 55, 65),
+    34: ("Nidoking",   ["Poison","Ground"],   81,102, 77, 85, 75, 85),
+    35: ("Clefairy",   ["Normal","Fairy"],    70, 45, 48, 60, 65, 35),
+    36: ("Clefable",   ["Normal","Fairy"],    95, 70, 73, 95, 90, 60),
+    37: ("Vulpix",     ["Fire"],              38, 41, 40, 50, 65, 65),
+    38: ("Ninetales",  ["Fire"],              73, 76, 75, 81,100,100),
+    39: ("Jigglypuff", ["Normal","Fairy"],   115, 45, 20, 45, 25, 20),
+    40: ("Wigglytuff", ["Normal","Fairy"],   140, 70, 45, 85, 50, 45),
+    41: ("Zubat",      ["Poison","Flying"],   40, 45, 35, 30, 40, 55),
+    42: ("Golbat",     ["Poison","Flying"],   75, 80, 70, 65, 75, 90),
+    43: ("Oddish",     ["Grass","Poison"],    45, 50, 55, 75, 65, 30),
+    44: ("Gloom",      ["Grass","Poison"],    60, 65, 70, 85, 75, 40),
+    45: ("Vileplume",  ["Grass","Poison"],    75, 80, 85,110, 90, 50),
+    46: ("Paras",      ["Bug","Grass"],       35, 70, 55, 45, 55, 25),
+    47: ("Parasect",   ["Bug","Grass"],       60, 95, 80, 60, 80, 30),
+    48: ("Venonat",    ["Bug","Poison"],      60, 55, 50, 40, 55, 45),
+    49: ("Venomoth",   ["Bug","Poison"],      70, 65, 60, 90, 75, 90),
+    50: ("Diglett",    ["Ground"],            10, 55, 25, 35, 45, 95),
+    51: ("Dugtrio",    ["Ground"],            35, 80, 50, 50, 70,120),
+    52: ("Meowth",     ["Normal"],            40, 45, 35, 40, 40, 90),
+    53: ("Persian",    ["Normal"],            65, 70, 60, 65, 65,115),
+    54: ("Psyduck",    ["Water"],             50, 52, 48, 65, 50, 55),
+    55: ("Golduck",    ["Water"],             80, 82, 78, 95, 80, 85),
+    56: ("Mankey",     ["Fighting"],          40, 80, 35, 35, 45, 70),
+    57: ("Primeape",   ["Fighting"],          65,105, 60, 60, 70, 95),
+    58: ("Growlithe",  ["Fire"],              55, 70, 45, 70, 50, 60),
+    59: ("Arcanine",   ["Fire"],              90,110, 80,100, 80, 95),
+    60: ("Poliwag",    ["Water"],             40, 50, 40, 40, 40, 90),
+    61: ("Poliwhirl",  ["Water"],             65, 65, 65, 50, 50, 90),
+    62: ("Poliwrath",  ["Water","Fighting"],  90, 95, 95, 70, 90, 70),
+    63: ("Abra",       ["Psychic"],           25, 20, 15,105, 55, 90),
+    64: ("Kadabra",    ["Psychic"],           40, 35, 30,120, 70,105),
+    65: ("Alakazam",   ["Psychic"],           55, 50, 45,135, 95,120),
+    66: ("Machop",     ["Fighting"],          70, 80, 50, 35, 35, 35),
+    67: ("Machoke",    ["Fighting"],          80,100, 70, 50, 60, 45),
+    68: ("Machamp",    ["Fighting"],          90,130, 80, 65, 85, 55),
+    69: ("Bellsprout", ["Grass","Poison"],    50, 75, 35, 70, 30, 40),
+    70: ("Weepinbell", ["Grass","Poison"],    65, 90, 50, 85, 45, 55),
+    71: ("Victreebel", ["Grass","Poison"],    80,105, 65,100, 60, 70),
+    72: ("Tentacool",  ["Water","Poison"],    40, 40, 35, 50,100, 70),
+    73: ("Tentacruel", ["Water","Poison"],    80, 70, 65, 80,120,100),
+    74: ("Geodude",    ["Rock","Ground"],     40, 80,100, 30, 30, 20),
+    75: ("Graveler",   ["Rock","Ground"],     55, 95,115, 45, 45, 35),
+    76: ("Golem",      ["Rock","Ground"],     80,120,130, 55, 65, 45),
+    77: ("Ponyta",     ["Fire"],              50, 85, 55, 65, 65, 90),
+    78: ("Rapidash",   ["Fire"],              65,100, 70, 80, 80,105),
+    79: ("Slowpoke",   ["Water","Psychic"],   90, 65, 65, 40, 40, 15),
+    80: ("Slowbro",    ["Water","Psychic"],   95, 75,110,100, 80, 30),
+    81: ("Magnemite",  ["Electric","Steel"],  25, 35, 70, 95, 55, 45),
+    82: ("Magneton",   ["Electric","Steel"],  50, 60, 95,120, 70, 70),
+    83: ("Farfetchd",  ["Normal","Flying"],   52, 65, 55, 58, 62, 60),
+    84: ("Doduo",      ["Normal","Flying"],   35, 85, 45, 35, 35, 75),
+    85: ("Dodrio",     ["Normal","Flying"],   60,110, 70, 60, 60,110),
+    86: ("Seel",       ["Water"],             65, 45, 55, 45, 70, 45),
+    87: ("Dewgong",    ["Water","Ice"],       90, 70, 80, 70, 95, 70),
+    88: ("Grimer",     ["Poison"],            80, 80, 50, 40, 50, 25),
+    89: ("Muk",        ["Poison"],           105,105, 75, 65,100, 50),
+    90: ("Shellder",   ["Water"],             30, 65,100, 45, 25, 40),
+    91: ("Cloyster",   ["Water","Ice"],       50, 95,180, 85, 45, 70),
+    92: ("Gastly",     ["Ghost","Poison"],    30, 35, 30,100, 35, 80),
+    93: ("Haunter",    ["Ghost","Poison"],    45, 50, 45,115, 55, 95),
+    94: ("Gengar",     ["Ghost","Poison"],    60, 65, 60,130, 75,110),
+    95: ("Onix",       ["Rock","Ground"],     35, 45,160, 30, 45, 70),
+    96: ("Drowzee",    ["Psychic"],           60, 48, 45, 43, 90, 42),
+    97: ("Hypno",      ["Psychic"],           85, 73, 70, 73,115, 67),
+    98: ("Krabby",     ["Water"],             30,105, 90, 25, 25, 50),
+    99: ("Kingler",    ["Water"],             55,130,115, 50, 50, 75),
+    100:("Voltorb",    ["Electric"],          40, 30, 50, 55, 55,100),
+    101:("Electrode",  ["Electric"],          60, 50, 70, 80, 80,150),
+    102:("Exeggcute",  ["Grass","Psychic"],   60, 40, 80, 60, 45, 40),
+    103:("Exeggutor",  ["Grass","Psychic"],   95, 95, 85,125, 65, 55),
+    104:("Cubone",     ["Ground"],            50, 50, 95, 40, 50, 35),
+    105:("Marowak",    ["Ground"],            60, 80,110, 50, 80, 45),
+    106:("Hitmonlee",  ["Fighting"],          50,120, 53, 35,110, 87),
+    107:("Hitmonchan", ["Fighting"],          50,105, 79, 35,110, 76),
+    108:("Lickitung",  ["Normal"],            90, 55, 75, 60, 75, 30),
+    109:("Koffing",    ["Poison"],            40, 65, 95, 60, 45, 35),
+    110:("Weezing",    ["Poison"],            65, 90,120, 85, 70, 60),
+    111:("Rhyhorn",    ["Ground","Rock"],     80, 85, 95, 30, 30, 25),
+    112:("Rhydon",     ["Ground","Rock"],    105,130,120, 45, 45, 40),
+    113:("Chansey",    ["Normal"],           250,  5,  5, 35,105, 50),
+    114:("Tangela",    ["Grass"],             65, 55,115,100, 40, 60),
+    115:("Kangaskhan", ["Normal"],           105, 95, 80, 40, 80, 90),
+    116:("Horsea",     ["Water"],             30, 40, 70, 70, 25, 60),
+    117:("Seadra",     ["Water"],             55, 65, 95, 95, 45, 85),
+    118:("Goldeen",    ["Water"],             45, 67, 60, 35, 50, 63),
+    119:("Seaking",    ["Water"],             80, 92, 65, 65, 80, 68),
+    120:("Staryu",     ["Water"],             30, 45, 55, 70, 55, 85),
+    121:("Starmie",    ["Water","Psychic"],   60, 75, 85,100, 85,115),
+    122:("Mr. Mime",   ["Psychic","Fairy"],   40, 45, 65,100,120, 90),
+    123:("Scyther",    ["Bug","Flying"],      70,110, 80, 55, 80,105),
+    124:("Jynx",       ["Ice","Psychic"],     65, 50, 35,115, 95, 95),
+    125:("Electabuzz", ["Electric"],          65, 83, 57, 95, 85,105),
+    126:("Magmar",     ["Fire"],              65, 95, 57,100, 85, 93),
+    127:("Pinsir",     ["Bug"],               65,125,100, 55, 70, 85),
+    128:("Tauros",     ["Normal"],            75,100, 95, 40, 70,110),
+    129:("Magikarp",   ["Water"],             20, 10, 55, 15, 20, 80),
+    130:("Gyarados",   ["Water","Flying"],    95,125, 79, 60,100, 81),
+    131:("Lapras",     ["Water","Ice"],      130, 85, 80, 85, 95, 60),
+    132:("Ditto",      ["Normal"],            48, 48, 48, 48, 48, 48),
+    133:("Eevee",      ["Normal"],            55, 55, 50, 45, 65, 55),
+    134:("Vaporeon",   ["Water"],            130, 65, 60,110, 95, 65),
+    135:("Jolteon",    ["Electric"],          65, 65, 60,110, 95,130),
+    136:("Flareon",    ["Fire"],              65,130, 60, 95,110, 65),
+    137:("Porygon",    ["Normal"],            65, 60, 70, 85, 75, 40),
+    138:("Omanyte",    ["Rock","Water"],      35, 40,100, 90, 55, 35),
+    139:("Omastar",    ["Rock","Water"],      70, 60,125,115, 70, 55),
+    140:("Kabuto",     ["Rock","Water"],      30, 80, 90, 55, 45, 55),
+    141:("Kabutops",   ["Rock","Water"],      60,115,105, 65, 70, 80),
+    142:("Aerodactyl", ["Rock","Flying"],     80,105, 65, 60, 75,130),
+    143:("Snorlax",    ["Normal"],           160,110, 65, 65,110, 30),
+    144:("Articuno",   ["Ice","Flying"],      90, 85,100, 95,125, 85),
+    145:("Zapdos",     ["Electric","Flying"], 90, 90, 85,125, 90,100),
+    146:("Moltres",    ["Fire","Flying"],     90,100, 90,125, 85, 90),
+    147:("Dratini",    ["Dragon"],            41, 64, 45, 50, 50, 50),
+    148:("Dragonair",  ["Dragon"],            61, 84, 65, 70, 70, 70),
+    149:("Dragonite",  ["Dragon","Flying"],   91,134, 95,100,100, 80),
+    150:("Mewtwo",     ["Psychic"],          106,110, 90,154, 90,130),
+    151:("Mew",        ["Psychic"],          100,100,100,100,100,100),
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PLAYER INVENTORY  (starting state)
+# ─────────────────────────────────────────────────────────────────────────────
+PLAYER_INVENTORY = {
+    "pokemon": [
+        {"dex": 151, "level": 50, "hp": 100},
+    ],
+    "items": [
+        {"name": "Poke Ball",  "qty": 5, "desc": "A device for catching wild Pokemon."},
+        {"name": "Potion",     "qty": 3, "desc": "Restores 20 HP to one Pokemon."},
+        {"name": "Antidote",   "qty": 2, "desc": "Cures the Poison status condition."},
+        {"name": "Repel",      "qty": 1, "desc": "Keeps weak wild Pokemon away for 100 steps."},
+        {"name": "Rare Candy", "qty": 1, "desc": "Raises a Pokemon level by 1."},
+    ],
+    "badges": [
+        {"name": "Boulder", "leader": "BROCK",     "earned": False},
+        {"name": "Cascade", "leader": "MISTY",     "earned": False},
+        {"name": "Thunder", "leader": "LT. SURGE", "earned": False},
+        {"name": "Rainbow", "leader": "ERIKA",     "earned": False},
+        {"name": "Soul",    "leader": "KOGA",      "earned": False},
+        {"name": "Marsh",   "leader": "SABRINA",   "earned": False},
+        {"name": "Volcano", "leader": "BLAINE",    "earned": False},
+        {"name": "Earth",   "leader": "GIOVANNI",  "earned": False},
+    ],
+}
 
 # ─────────────────────────────────────────────────────────────────────────────
 # MAP GENERATION  (outdoor)
@@ -650,6 +846,245 @@ class Dialog:
                   (SW-48, by+6))
 
 # ─────────────────────────────────────────────────────────────────────────────
+# BACKPACK  (inventory overlay: POKEMON | ITEMS | BADGES)
+# ─────────────────────────────────────────────────────────────────────────────
+class Backpack:
+    TABS     = ["POKEMON", "ITEMS", "BADGES"]
+    PW, PH   = 600, 500
+    PX       = (SW - 600) // 2   # 20
+    PY       = (SH - 500) // 2   # 38
+    LIST_W   = 190
+    VIS_ROWS = 11
+
+    def __init__(self, fnt, fnt_sm, fnt_bld, inventory):
+        self.fnt = fnt; self.fnt_sm = fnt_sm; self.fnt_bld = fnt_bld
+        self.inventory = inventory
+        self.active = False
+        self.tab    = 0
+        self.sel    = 0
+        self.scroll = 0
+
+    def open(self):  self.active = True;  self.sel = 0; self.scroll = 0
+    def close(self): self.active = False
+
+    def handle_key(self, key):
+        if key in (pygame.K_b, pygame.K_ESCAPE):
+            self.close(); return
+        lst = self._cur_list()
+        if key == pygame.K_LEFT:
+            self.tab = (self.tab - 1) % 3; self.sel = 0; self.scroll = 0
+        elif key == pygame.K_RIGHT:
+            self.tab = (self.tab + 1) % 3; self.sel = 0; self.scroll = 0
+        elif key == pygame.K_UP and self.sel > 0:
+            self.sel -= 1
+            if self.sel < self.scroll: self.scroll = self.sel
+        elif key == pygame.K_DOWN and self.sel < len(lst) - 1:
+            self.sel += 1
+            if self.sel >= self.scroll + self.VIS_ROWS:
+                self.scroll = self.sel - self.VIS_ROWS + 1
+
+    def _cur_list(self):
+        return self.inventory[["pokemon", "items", "badges"][self.tab]]
+
+    # ── Main draw ──────────────────────────────────────────────────────────
+    def draw(self, surf):
+        if not self.active: return
+        D = pygame.draw; R = pygame.Rect
+
+        # Dim background
+        dim = pygame.Surface((SW, SH)); dim.set_alpha(160); dim.fill((0, 0, 0))
+        surf.blit(dim, (0, 0))
+
+        px, py, pw, ph = self.PX, self.PY, self.PW, self.PH
+        D.rect(surf, cUIBG, R(px,   py,   pw,   ph  ))
+        D.rect(surf, cUIBD, R(px,   py,   pw,   ph  ), 4)
+        D.rect(surf, cUIGY, R(px+4, py+4, pw-8, ph-8), 2)
+
+        # Header
+        surf.blit(self.fnt.render("BACKPACK", True, cUIBD), (px+16, py+8))
+
+        # Tab bar
+        tab_x = px + 16; tab_y = py + 30
+        for i, tab in enumerate(self.TABS):
+            tw = self.fnt_sm.size(tab)[0] + 20
+            active = (i == self.tab)
+            D.rect(surf, cUIBD if active else cUIGY, R(tab_x, tab_y, tw, 20))
+            D.rect(surf, cUIBD, R(tab_x, tab_y, tw, 20), 1)
+            surf.blit(self.fnt_sm.render(tab, True,
+                      cUIBG if active else cUIBD), (tab_x+10, tab_y+4))
+            tab_x += tw + 4
+
+        sep_y = tab_y + 22
+        D.rect(surf, cUIBD, R(px+8, sep_y, pw-16, 2))
+
+        # Layout geometry
+        cy  = sep_y + 6
+        lx  = px + 8;   lw = self.LIST_W
+        dx  = lx + lw + 8;  dw = pw - lw - 24
+        lst = self._cur_list(); rh = 20
+
+        # Scrollable list (left panel)
+        for i in range(self.VIS_ROWS):
+            idx = self.scroll + i
+            if idx >= len(lst): break
+            ry       = cy + i * rh
+            selected = (idx == self.sel)
+            if selected: D.rect(surf, cUIBD, R(lx, ry, lw, rh))
+            fg = cUIBG if selected else cUIBD
+            surf.blit(self.fnt_sm.render(
+                self._label(lst[idx]), True, fg), (lx+4, ry+3))
+
+        if self.scroll > 0:
+            surf.blit(self.fnt_sm.render("^", True, cUIGY),
+                      (lx + lw//2 - 4, cy - 14))
+        if self.scroll + self.VIS_ROWS < len(lst):
+            surf.blit(self.fnt_sm.render("v", True, cUIGY),
+                      (lx + lw//2 - 4, cy + self.VIS_ROWS * rh + 2))
+
+        # Divider
+        D.rect(surf, cUIGY, R(lx + lw + 4, cy, 2, self.VIS_ROWS * rh))
+
+        # Detail panel (right)
+        if lst and self.sel < len(lst):
+            self._draw_detail(surf, lst[self.sel], dx, cy, dw)
+
+        # Footer
+        fy = py + ph - 22
+        D.rect(surf, cUIGY, R(px+8, fy-4, pw-16, 2))
+        hint = "< > Tab   ^ v Select   B / Esc  Close"
+        surf.blit(self.fnt_sm.render(hint, True, cUIGY),
+                  (px + pw//2 - self.fnt_sm.size(hint)[0]//2, fy+2))
+
+    def _label(self, item):
+        if self.tab == 0:
+            info = GEN1_POKEMON[item["dex"]]
+            return f"#{item['dex']:03d} {info[0].upper()}"
+        if self.tab == 1:
+            return f"{item['name']}  x{item['qty']}"
+        earned = "*" if item["earned"] else "-"
+        return f"[{earned}] {item['name']}"
+
+    def _draw_detail(self, surf, item, dx, dy, dw):
+        if   self.tab == 0: self._poke_detail(surf, item, dx, dy, dw)
+        elif self.tab == 1: self._item_detail(surf, item, dx, dy, dw)
+        else:               self._badge_detail(surf, item, dx, dy, dw)
+
+    # ── Pokemon detail ─────────────────────────────────────────────────────
+    def _poke_detail(self, surf, poke, dx, dy, dw):
+        D = pygame.draw; R = pygame.Rect
+        info = GEN1_POKEMON[poke["dex"]]
+        name, types, hp, atk, df, spa, spd, spe = info
+        col  = TYPE_COLORS.get(types[0], (168,168,168))
+        dark = tuple(max(0,   c-70) for c in col)
+        lite = tuple(min(255, c+80) for c in col)
+
+        # Type-coloured icon circle
+        icon_cx = dx + dw // 2; icon_cy = dy + 52; r = 40
+        if poke["dex"] >= 144:                          # legendary gold ring
+            D.circle(surf, (248,208,48), (icon_cx, icon_cy), r+6, 3)
+        D.circle(surf, (60,60,60),  (icon_cx+2, icon_cy+2), r)   # shadow
+        D.circle(surf, col,         (icon_cx,   icon_cy  ), r)
+        D.circle(surf, lite,        (icon_cx-r//3, icon_cy-r//3), r//3)
+        D.circle(surf, dark,        (icon_cx,   icon_cy  ), r, 2)
+        lbl = self.fnt_sm.render(f"No.{poke['dex']:03d}", True, dark)
+        surf.blit(lbl, (icon_cx - lbl.get_width()//2, icon_cy - 6))
+
+        # Name + level
+        name_y = dy + r*2 + 22
+        nt = self.fnt.render(name.upper(), True, cUIBD)
+        surf.blit(nt, (dx + dw//2 - nt.get_width()//2, name_y))
+        lt = self.fnt_sm.render(f"Lv. {poke['level']}", True, cUIGY)
+        surf.blit(lt, (dx + dw//2 - lt.get_width()//2, name_y+18))
+
+        # Type badge(s)
+        type_y   = name_y + 36
+        total_tw = sum(self.fnt_bld.size(t)[0]+14 for t in types) + (len(types)-1)*6
+        tx = dx + dw//2 - total_tw//2
+        for t in types:
+            tc    = TYPE_COLORS.get(t, (168,168,168))
+            tdark = tuple(max(0, c-60) for c in tc)
+            tw    = self.fnt_bld.size(t)[0]+14
+            D.rect(surf, tc,    R(tx, type_y, tw, 15))
+            D.rect(surf, tdark, R(tx, type_y, tw, 15), 1)
+            surf.blit(self.fnt_bld.render(t.upper(), True, cWHT), (tx+7, type_y+2))
+            tx += tw + 6
+
+        # Stats with colour-coded bars
+        stat_y = type_y + 26
+        stats  = [("HP",hp),("ATTACK",atk),("DEF",df),
+                  ("SP.ATK",spa),("SP.DEF",spd),("SPEED",spe)]
+        bw = dw - 12
+        for i, (sname, sval) in enumerate(stats):
+            sy = stat_y + i * 22
+            if sval < 60:    bc = (220, 80, 80)
+            elif sval < 100: bc = (220,180, 40)
+            else:            bc = ( 60,180, 60)
+            fill = int(bw * min(sval, 255) / 255)
+            D.rect(surf, (180,180,180), R(dx+4, sy+12, bw,   7))
+            D.rect(surf, bc,           R(dx+4, sy+12, fill, 7))
+            surf.blit(self.fnt_bld.render(sname, True, cUIBD), (dx+6, sy))
+            vt = self.fnt_bld.render(str(sval), True, cUIBD)
+            surf.blit(vt, (dx + dw - vt.get_width() - 8, sy))
+
+    # ── Item detail ─────────────────────────────────────────────────────────
+    def _item_detail(self, surf, item, dx, dy, dw):
+        D = pygame.draw; R = pygame.Rect
+        cx = dx + dw//2; cy = dy + 52
+        # Poke-Ball style icon
+        D.circle(surf, (220, 60, 60),  (cx, cy),     32)
+        D.circle(surf, (248,248,248),  (cx, cy+16),  16)
+        D.rect(surf,   (32, 32, 32),   R(cx-32, cy-3, 64, 6))
+        D.circle(surf, (32, 32, 32),   (cx, cy),      9)
+        D.circle(surf, (248,248,248),  (cx, cy),      6)
+
+        nt = self.fnt.render(item["name"], True, cUIBD)
+        surf.blit(nt, (dx + dw//2 - nt.get_width()//2, dy+94))
+        qt = self.fnt_sm.render(f"Qty: {item['qty']}", True, cUIGY)
+        surf.blit(qt, (dx + dw//2 - qt.get_width()//2, dy+114))
+
+        # Word-wrap description
+        words = item["desc"].split(); lines = []; cur = ""
+        for w in words:
+            test = (cur + " " + w).strip()
+            if self.fnt_sm.size(test)[0] < dw - 8: cur = test
+            else:
+                if cur: lines.append(cur)
+                cur = w
+        if cur: lines.append(cur)
+        for li, ln in enumerate(lines):
+            surf.blit(self.fnt_sm.render(ln, True, cUIBD),
+                      (dx+4, dy+136 + li*18))
+
+    # ── Badge detail ────────────────────────────────────────────────────────
+    def _badge_detail(self, surf, badge, dx, dy, dw):
+        D = pygame.draw
+        earned = badge["earned"]
+        cx = dx + dw//2; cy = dy + 60
+        bc  = (248,208,48) if earned else (100,100,100)
+        bdk = tuple(max(0, c-80) for c in bc)
+
+        # 8-pointed star
+        outer_r, inner_r = 36, 16
+        pts = []
+        for i in range(16):
+            angle = math.radians(i * 22.5 - 90)
+            rad   = outer_r if i % 2 == 0 else inner_r
+            pts.append((int(cx + rad * math.cos(angle)),
+                        int(cy + rad * math.sin(angle))))
+        D.polygon(surf, bdk, pts)
+        D.polygon(surf, bc,  [(x-1, y-1) for x, y in pts])
+
+        nt = self.fnt.render(f"{badge['name'].upper()} BADGE", True, cUIBD)
+        surf.blit(nt, (cx - nt.get_width()//2, cy+46))
+        lt = self.fnt_sm.render(f"Leader: {badge['leader']}", True, cUIGY)
+        surf.blit(lt, (cx - lt.get_width()//2, cy+66))
+        st     = "OBTAINED" if earned else "NOT YET EARNED"
+        sc     = (60,180,60) if earned else (200,80,80)
+        st_srf = self.fnt_sm.render(st, True, sc)
+        surf.blit(st_srf, (cx - st_srf.get_width()//2, cy+86))
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # PLAYER
 # ─────────────────────────────────────────────────────────────────────────────
 class Player:
@@ -755,7 +1190,7 @@ def draw_title(surf, tick):
     surf.blit(tx_s, (lx + lw//2 - tx_s.get_width()//2,     ly + lh//2 - tx_s.get_height()//2))
     sub = fS.render("A Pokemon GBC-style Adventure", True, (248,240,180))
     surf.blit(sub, (SW//2 - sub.get_width()//2, ly + lh + 10))
-    ctrl = fC.render("Arrow Keys / WASD = Move    Enter / Space = Talk    Esc = Quit", True, (140,160,200))
+    ctrl = fC.render("Move: Arrows/WASD   Talk: Enter/Z   Bag: B   Quit: Esc", True, (140,160,200))
     surf.blit(ctrl, (SW//2 - ctrl.get_width()//2, ly + lh + 32))
     if (tick // 28) % 2 == 0:
         et = fE.render("> PRESS ENTER TO START <", True, (248,248,200))
@@ -825,7 +1260,8 @@ class Game:
         self.fnt_bld = pygame.font.SysFont("monospace",  9, bold=True)
         self.fnt_hud = pygame.font.SysFont("monospace", 13, bold=True)
 
-        self.dlg = Dialog(self.fnt_dlg, self.fnt_sm)
+        self.dlg      = Dialog(self.fnt_dlg, self.fnt_sm)
+        self.backpack = Backpack(self.fnt_dlg, self.fnt_sm, self.fnt_bld, PLAYER_INVENTORY)
         set_hud("PALLET TOWN", 240)
 
     # ── Helpers ────────────────────────────────────────────────────────────
@@ -890,13 +1326,19 @@ class Game:
             if ev.type == pygame.QUIT:
                 pygame.quit(); sys.exit()
             if ev.type == pygame.KEYDOWN:
+                # Backpack consumes all keys while open
+                if self.backpack.active:
+                    self.backpack.handle_key(ev.key)
+                    continue
                 if ev.key == pygame.K_ESCAPE:
                     pygame.quit(); sys.exit()
                 if self.state == "title":
                     if ev.key in (pygame.K_RETURN, pygame.K_SPACE):
                         self.state = "play"
                 elif self.state in ("play", "interior"):
-                    if ev.key in (pygame.K_RETURN, pygame.K_SPACE, pygame.K_z):
+                    if ev.key == pygame.K_b and not self.dlg.active:
+                        self.backpack.open()
+                    elif ev.key in (pygame.K_RETURN, pygame.K_SPACE, pygame.K_z):
                         if self.dlg.active: self.dlg.advance()
                         else: self._interact()
 
@@ -943,7 +1385,7 @@ class Game:
 
         self.dlg.update()
 
-        if not self.dlg.active:
+        if not self.dlg.active and not self.backpack.active:
             if self.state == "interior":
                 tmap  = self.current_room["tiles"]
                 npct  = self._room_npct()
@@ -997,6 +1439,7 @@ class Game:
                 fade_surf.fill((0, 0, 0))
                 self.screen.blit(fade_surf, (0, 0))
 
+        self.backpack.draw(self.screen)
         pygame.display.flip()
 
     def _draw_outdoor(self):
