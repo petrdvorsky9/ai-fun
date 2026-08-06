@@ -85,7 +85,7 @@ def format_price(price: float) -> str:
 
 
 def print_results(products: list[dict], show_all: bool, type_filter: str | None) -> None:
-    """Print products grouped by store, sorted by price."""
+    """Print products grouped by store in a table with a Sale column."""
     # Optional filtering
     if not show_all:
         products = [p for p in products if is_milk_product(p["name"])]
@@ -104,7 +104,6 @@ def print_results(products: list[dict], show_all: bool, type_filter: str | None)
     # Print in preferred store order, then any remaining alphabetically
     ordered_stores = [s for s in STORE_ORDER if s in by_store]
     ordered_stores += sorted(s for s in by_store if s not in STORE_ORDER)
-    # Also include leaflet-only stores that have no results so the user can see them
     missing_leaflet = [s for s in LEAFLET_ONLY_STORES if s not in by_store]
 
     total = sum(len(v) for v in by_store.values())
@@ -113,30 +112,57 @@ def print_results(products: list[dict], show_all: bool, type_filter: str | None)
         return
 
     print(f"\nFound {total} Alpro product(s) across {len(by_store)} store(s):\n")
-    print("=" * 65)
 
+    COL_STORE   = 12
+    COL_PRICE   =  9
+    COL_AMOUNT  =  8
+    COL_SALE    = 14   # "Sale until" value
+    COL_PRODUCT = 46
+
+    header = (
+        f"{'Store':<{COL_STORE}}"
+        f"{'Price':>{COL_PRICE}}"
+        f"  {'Amount':<{COL_AMOUNT}}"
+        f"  {'On sale?':<{COL_SALE}}"
+        f"  Product"
+    )
+    divider = "─" * len(header)
+
+    print(divider)
+    print(header)
+    print(divider)
+
+    prev_store = None
     for store in ordered_stores:
-        items = by_store[store]
-        label = "  [leaflet promo]" if store in LEAFLET_ONLY_STORES else ""
-        print(f"\n{store}{label}  ({len(items)} product{'s' if len(items) != 1 else ''})")
-        print("-" * 65)
-        for p in items:
-            amount = f"  [{p['amount']}]" if p.get("amount") else ""
-            stock_tag = "" if p.get("stock", 1) else "  [out of stock]"
-            valid_tag = f"  [promo until {p['validUntil']}]" if p.get("validUntil") else ""
-            print(f"  {format_price(p['price']):>10}  {p['name']}{amount}{valid_tag}{stock_tag}")
+        for p in by_store[store]:
+            store_col  = store if store != prev_store else ""
+            price_col  = format_price(p["price"])
+            amount_col = (p.get("amount") or "").strip()
+            sale_col   = f"until {p['validUntil']}" if p.get("validUntil") else "—"
+            name_col   = p["name"]
+            if not p.get("stock", 1):
+                name_col += "  [out of stock]"
+
+            print(
+                f"{store_col:<{COL_STORE}}"
+                f"{price_col:>{COL_PRICE}}"
+                f"  {amount_col:<{COL_AMOUNT}}"
+                f"  {sale_col:<{COL_SALE}}"
+                f"  {name_col}"
+            )
+            prev_store = store
+        print(divider)
 
     # Show stores with no current Alpro promotion
     if missing_leaflet:
-        print(f"\n{'─' * 65}")
-        print("No Alpro in current weekly promotion:")
+        print("\nNo Alpro in current weekly promotion (leaflet-only stores):")
         for store in sorted(missing_leaflet):
-            note = "  (e-shop closed Jan 2026 — leaflet only)" if store == "BILLA" else "  (leaflet only — no permanent online catalog)"
-            print(f"  {store}{note}")
+            note = "e-shop closed Jan 2026 — leaflet only" if store == "BILLA" else "leaflet promotions only — no permanent online catalog"
+            print(f"  {store:<10}  {note}")
+        print()
 
-    print("\n" + "=" * 65)
-    print("Prices in CZK incl. VAT — data from potravinka.cz")
-    print("Leaflet-only stores: prices reflect current weekly promo only.\n")
+    print("Prices in CZK incl. VAT — source: potravinka.cz")
+    print("'On sale?' shows the promotion end date when the price is a limited-time offer.\n")
 
 
 def main() -> None:
