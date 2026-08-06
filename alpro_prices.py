@@ -4,6 +4,14 @@ Alpro Milk Price Checker — Czech Grocery Stores
 Uses the Potravinka.cz public API (no auth required).
 Covered stores: LIDL, Kaufland, Albert, BILLA, Penny, Tesco,
                 Globus, Makro, rohlik.cz, Kosik.cz, COOP
+
+Notes on LIDL / Kaufland / BILLA:
+  These stores have no online grocery catalog. Potravinka tracks only
+  their weekly promotional leaflets. When Alpro appears in a leaflet
+  promotion it will show up here automatically; otherwise the store is
+  listed as "no current promotion".
+  BILLA closed its own e-shop in Jan 2026 and now delivers only via
+  Wolt/Foodora, so no permanent price data is available for BILLA.
 """
 
 import sys
@@ -19,6 +27,9 @@ STORE_ORDER = [
     "LIDL", "Kaufland", "Albert", "BILLA", "Penny",
     "Tesco", "Globus", "Makro", "rohlik.cz", "Kosik.cz", "COOP",
 ]
+
+# Stores that appear in Potravinka but only via weekly leaflet promotions
+LEAFLET_ONLY_STORES = {"LIDL", "Kaufland", "BILLA", "Penny"}
 
 # Keywords that identify plant-based milk/drink products
 MILK_KEYWORDS = [
@@ -81,10 +92,6 @@ def print_results(products: list[dict], show_all: bool, type_filter: str | None)
     if type_filter:
         products = [p for p in products if matches_type_filter(p["name"], type_filter)]
 
-    if not products:
-        print("No matching Alpro products found.")
-        return
-
     # Group by store
     by_store: dict[str, list[dict]] = defaultdict(list)
     for p in products:
@@ -97,22 +104,39 @@ def print_results(products: list[dict], show_all: bool, type_filter: str | None)
     # Print in preferred store order, then any remaining alphabetically
     ordered_stores = [s for s in STORE_ORDER if s in by_store]
     ordered_stores += sorted(s for s in by_store if s not in STORE_ORDER)
+    # Also include leaflet-only stores that have no results so the user can see them
+    missing_leaflet = [s for s in LEAFLET_ONLY_STORES if s not in by_store]
 
     total = sum(len(v) for v in by_store.values())
+    if total == 0 and not missing_leaflet:
+        print("No matching Alpro products found.")
+        return
+
     print(f"\nFound {total} Alpro product(s) across {len(by_store)} store(s):\n")
     print("=" * 65)
 
     for store in ordered_stores:
         items = by_store[store]
-        print(f"\n{store}  ({len(items)} product{'s' if len(items) != 1 else ''})")
+        label = "  [leaflet promo]" if store in LEAFLET_ONLY_STORES else ""
+        print(f"\n{store}{label}  ({len(items)} product{'s' if len(items) != 1 else ''})")
         print("-" * 65)
         for p in items:
             amount = f"  [{p['amount']}]" if p.get("amount") else ""
             stock_tag = "" if p.get("stock", 1) else "  [out of stock]"
-            print(f"  {format_price(p['price']):>10}  {p['name']}{amount}{stock_tag}")
+            valid_tag = f"  [promo until {p['validUntil']}]" if p.get("validUntil") else ""
+            print(f"  {format_price(p['price']):>10}  {p['name']}{amount}{valid_tag}{stock_tag}")
+
+    # Show stores with no current Alpro promotion
+    if missing_leaflet:
+        print(f"\n{'─' * 65}")
+        print("No Alpro in current weekly promotion:")
+        for store in sorted(missing_leaflet):
+            note = "  (e-shop closed Jan 2026 — leaflet only)" if store == "BILLA" else "  (leaflet only — no permanent online catalog)"
+            print(f"  {store}{note}")
 
     print("\n" + "=" * 65)
-    print("Prices in CZK incl. VAT — data from potravinka.cz\n")
+    print("Prices in CZK incl. VAT — data from potravinka.cz")
+    print("Leaflet-only stores: prices reflect current weekly promo only.\n")
 
 
 def main() -> None:
